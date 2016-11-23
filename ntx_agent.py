@@ -4,13 +4,13 @@
 import time
 import sched
 import logging
-import libvirt
 import socket
 
 from logging.handlers import RotatingFileHandler
 from multiprocessing import Process
 
 from heartbeat import heartbeat
+from collector import get_current_uuids, collector
 
 
 HOSTNAME = None
@@ -25,32 +25,14 @@ logging.getLogger('').setLevel(logging.DEBUG)
 logging.getLogger('').addHandler(R_handler)
 
 
-class LibvirtClient(object):
-    def __init__(self):
-        self.conn = None
-        self.try_count = 0
-        while self.conn is None and self.try_count < 3:
-            self.conn = libvirt.open(None)
-            self.try_count += 1
-            time.sleep(0.1)
-
-        if self.conn is None:
-            raise libvirt.VIR_ERR_INTERNAL_ERROR
-
-        self.domains = self.conn.listAllDomains()
-
-    def close(self):
-        self.conn.close()
-
-
 def collector_worker():
     logging.info('collector')
+    collector()
+
 
 
 def heartbeat_worker():
-    libvirt_client = LibvirtClient()
-    uuids = [domain.UUIDString() for domain in libvirt_client.domains]
-    libvirt_client.close()
+    uuids = get_current_uuids()
 
     global UUIDS, ID, CONFIG
     uuids_status = cmp(UUIDS, uuids)
@@ -102,21 +84,20 @@ def init_server():
     HOSTNAME = s.getsockname()[0]
     s.close()
 
-    libvirt_client = LibvirtClient()
-    UUIDS = [domain.UUIDString() for domain in libvirt_client.domains]
-    libvirt_client.close()
+    UUIDS = get_current_uuids()
 
 
 if __name__ == '__main__':
     init_server()
 
-    heartbeat_process = HeartbeatProcess(15)
-    heartbeat_process.daemon = True
-    heartbeat_process.start()
+    # heartbeat_process = HeartbeatProcess(15)
+    # heartbeat_process.daemon = True
+    # heartbeat_process.start()
 
-    collector_process = CollectorProcess(60)
-    collector_process.daemon = True
-    collector_process.start()
+    # collector_process = CollectorProcess(10)
+    # collector_process.daemon = True
+    # collector_process.start()
+    collector()
 
     while True:
         # check sub processes is working

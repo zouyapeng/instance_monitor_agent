@@ -2,11 +2,10 @@
 # -*- coding: utf8 -*-
 
 import httplib
-import urllib
 import json
 
 
-server_host = '192.168.213.230'
+server_host = '192.168.7.164'
 
 heartbeat_uri = '/heartbeat/'
 
