@@ -10,7 +10,7 @@ from logging.handlers import RotatingFileHandler
 from multiprocessing import Process
 
 from heartbeat import heartbeat
-from collector import get_current_uuids, collector
+from collector import get_current_uuids, collector, analysis, set_trigger
 
 
 HOSTNAME = None
@@ -18,17 +18,31 @@ UUIDS = None
 ID = None
 CONFIG = {}
 
+LOGGING = logging.getLogger('')
 R_handler = RotatingFileHandler('./ntx_agent.log', maxBytes=10 * 1024 * 1024,backupCount=5)
 formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s')
 R_handler.setFormatter(formatter)
-logging.getLogger('').setLevel(logging.DEBUG)
-logging.getLogger('').addHandler(R_handler)
+LOGGING.setLevel(logging.DEBUG)
+LOGGING.addHandler(R_handler)
+
+
+def analysis_worker():
+    global CONFIG, UUIDS
+    try:
+        if CONFIG and UUIDS:
+            for uuid in UUIDS:
+                config = CONFIG.get(uuid, None)
+                if analysis(uuid, config):
+                    set_trigger(config['id'])
+    except Exception:
+        LOGGING.exception('!!!!!analysis failed!!!!!')
 
 
 def collector_worker():
-    logging.info('collector')
-    collector()
-
+    try:
+        collector()
+    except Exception:
+        LOGGING.exception('!!!!!collector failed!!!!!')
 
 
 def heartbeat_worker():
@@ -76,6 +90,21 @@ class HeartbeatProcess(Process):
         scheduler.run()
 
 
+class AnalysisProcess(Process):
+    def __init__(self, interval):
+        super(AnalysisProcess, self).__init__()
+        self.interval = interval
+
+    def main_loop(self, sc):
+        sc.enter(self.interval, 1, self.main_loop, (sc,))
+        analysis_worker()
+
+    def run(self):
+        scheduler = sched.scheduler(time.time, time.sleep)
+        scheduler.enter(self.interval, 1, self.main_loop, (scheduler,))
+        scheduler.run()
+
+
 def init_server():
     global UUIDS, HOSTNAME
 
@@ -90,14 +119,21 @@ def init_server():
 if __name__ == '__main__':
     init_server()
 
-    # heartbeat_process = HeartbeatProcess(15)
-    # heartbeat_process.daemon = True
-    # heartbeat_process.start()
+    heartbeat_process = HeartbeatProcess(60)
+    heartbeat_process.daemon = True
+    heartbeat_process.start()
 
-    # collector_process = CollectorProcess(10)
-    # collector_process.daemon = True
-    # collector_process.start()
-    collector()
+    time.sleep(10)
+
+    collector_process = CollectorProcess(30)
+    collector_process.daemon = True
+    collector_process.start()
+
+    time.sleep(10)
+
+    # analysis_process = AnalysisProcess(60)
+    # analysis_process.daemon = True
+    # analysis_process.start()
 
     while True:
         # check sub processes is working

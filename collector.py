@@ -2,18 +2,28 @@
 
 import libvirt
 import time
+import logging
 import datetime
-from pymongo import MongoClient
-from xml.etree import ElementTree
+from copy import deepcopy
+from collections import deque
+import pprint
 
+from xml.etree import ElementTree
+from mongo import mongo_save
+
+PRE_DATAS = None
+HOUR_DATAS = {}
+
+
+LOGGING = logging.getLogger('')
 
 DATA_TEMPLATE = {
     'uuid': None,
     'time': None,
     'cpu': None,
     'memory': None,
-    'disk': [],
-    'interface': []
+    'disk': None,
+    'interface': None
 }
 
 
@@ -38,12 +48,13 @@ class LibvirtClient(object):
             domain_data.update(DATA_TEMPLATE)
             domain_data.update({'uuid': domain.UUIDString()})
             domain_data.update({'time': datetime.datetime.now()})
-            domain_data.update({'cpu': {'cpu_number': self.get_cpu_num(domain),
-                                        'cpu_time': self.get_cpu_time(domain),
-                                        'cpu_usage': 0}})
-            domain_data.update({'disk': self.get_disk_statistics(domain)})
-
-            print self.get_memory_statistics(domain)
+            if domain.isActive() == 1:
+                domain_data.update({'cpu': {'cpu_number': self.get_cpu_num(domain),
+                                            'cpu_time': self.get_cpu_time(domain),
+                                            'cpu_usage': 0L}})
+                domain_data.update({'disk': self.get_disk_statistics(domain)})
+                domain_data.update({'memory': self.get_memory_statistics(domain)})
+                domain_data.update({'interface': self.get_interface_statistics(domain)})
 
             domain_data_list.append(domain_data)
 
@@ -59,58 +70,64 @@ class LibvirtClient(object):
 
     @staticmethod
     def get_memory_statistics(domain):
-        return domain.memoryStats()
+        memory_stats = domain.memoryStats()
+        memory_total = memory_stats.get('actual')
+        memory_available = memory_stats.get('available', None)
+
+        if memory_available is not None:
+            memory_used = memory_total - memory_available
+            return {'actual': memory_total,
+                    'available': memory_available,
+                    'used': memory_used,
+                    'usage': round(memory_used * 1.00 / memory_total, 2)}
+        else:
+            return {'actual': memory_total,
+                    'available': memory_available,
+                    'used': None,
+                    'usage': None}
 
     @staticmethod
     def get_disk_statistics(domain):
-        disks_statistics = list()
+        disks_statistics = dict()
 
         tree = ElementTree.fromstring(domain.XMLDesc())
 
         for target in tree.findall('devices/disk/target'):
-            disk_statistics = {}
             name = target.get('dev')
             rd_req, rd_bytes, wr_req, wr_bytes, err = domain.blockStats(name)
-            disk_statistics.update({name: {'rd_req': rd_req,
-                                           'rd_req_speed': 0,
-                                           'rd_bytes': rd_bytes,
-                                           'rd_bytes_speed': 0,
-                                           'wr_req': wr_req,
-                                           'wr_req_speed': 0,
-                                           'wr_bytes': wr_bytes,
-                                           'wr_bytes_speed': 0,
-                                           'err': err}})
-
-            disks_statistics.append(disk_statistics)
+            disks_statistics.update({name: {'rd_req': rd_req,
+                                            'rd_req_speed': 0L,
+                                            'rd_bytes': rd_bytes,
+                                            'rd_bytes_speed': 0L,
+                                            'wr_req': wr_req,
+                                            'wr_req_speed': 0L,
+                                            'wr_bytes': wr_bytes,
+                                            'wr_bytes_speed': 0L,
+                                            'err': err}})
 
         return disks_statistics
 
     @staticmethod
     def get_interface_statistics(domain):
-        ifaces_statistics = list()
+        ifaces_statistics = dict()
 
         tree = ElementTree.fromstring(domain.XMLDesc())
         ifaces = [iface.get('dev') for iface in tree.findall('devices/interface/target')]
 
         for iface in ifaces:
             stats = domain.interfaceStats(iface)
-            iface_statistics = {
-                'devname': iface,
-                'receive': {
-                    'bytes': stats[0],
-                    'packets': stats[1],
-                    'errs': stats[2],
-                    'drop': stats[3],
-                },
-                'transmit': {
-                    'bytes': stats[4],
-                    'packets': stats[5],
-                    'errs': stats[6],
-                    'drop': stats[7],
-                }
-            }
-
-            ifaces_statistics.append(iface_statistics)
+            ifaces_statistics.update({
+                iface: {'rx_bytes': stats[0],
+                        'rx_bytes_speed': 0L,
+                        'rx_packets': stats[1],
+                        'rx_errs': stats[2],
+                        'rx_drop': stats[3],
+                        'tx_bytes': stats[4],
+                        'tx_bytes_speed': 0L,
+                        'tx_packets': stats[5],
+                        'tx_errs': stats[6],
+                        'tx_drop': stats[7]}
+            })
 
         return ifaces_statistics
 
@@ -119,15 +136,134 @@ class LibvirtClient(object):
 
 
 def get_current_uuids():
-    client = LibvirtClient()
+    try:
+        client = LibvirtClient()
+    except libvirt.VIR_ERR_INTERNAL_ERROR:
+        LOGGING.error('Can not connect to libvirt!')
+        return []
+
     uuids = [domain.UUIDString() for domain in client.domains]
     client.close()
 
     return uuids
 
 
+def set_cpu_usage(pre_data, data, timedelta):
+    cpu_usage = (data['cpu']['cpu_time'] - pre_data['cpu']['cpu_time']) * 100.00 \
+                / data['cpu']['cpu_number'] \
+                / (timedelta * 1000 * 1000 * 1000)
+
+    data['cpu']['cpu_usage'] = round(cpu_usage, 2)
+
+
+def set_disk_speed(pre_data, data, timedelta):
+    for key, value in data['disk'].items():
+        pre_disk_data = pre_data['disk'].get(key, None)
+        if pre_disk_data is None:
+            continue
+
+        data['disk'][key]['rd_req_speed'] = round((value['rd_req'] - pre_disk_data['rd_req']) / timedelta, 2)
+        data['disk'][key]['rd_bytes_speed'] = round((value['rd_bytes'] - pre_disk_data['rd_bytes']) / timedelta, 2)
+        data['disk'][key]['wr_req_speed'] = round((value['wr_req'] - pre_disk_data['wr_req']) / timedelta, 2)
+        data['disk'][key]['wr_bytes_speed'] = round((value['wr_bytes'] - pre_disk_data['wr_bytes']) / timedelta, 2)
+
+
+def set_interface_speed(pre_data, data, timedelta):
+    for key, value in data['interface'].items():
+        pre_interface_data = pre_data['interface'].get(key, None)
+        if pre_interface_data is None:
+            continue
+
+        data['interface'][key]['rx_bytes_speed'] = round((value['rx_bytes'] - pre_interface_data['rx_bytes']) * 1.00 / timedelta, 2)
+        data['interface'][key]['tx_bytes_speed'] = round((value['tx_bytes'] - pre_interface_data['tx_bytes']) * 1.00 / timedelta, 2)
+
+
+def set_speed(pre_data, data):
+    if data['cpu'] is None or pre_data['cpu'] is None:
+        return
+
+    timedelta = (data.get('time') - pre_data.get('time')).total_seconds()
+    try:
+        set_cpu_usage(pre_data, data, timedelta)
+    except Exception:
+        LOGGING.exception('%s set cpu usage failed' % data['uuid'])
+
+    try:
+        set_disk_speed(pre_data, data, timedelta)
+    except Exception:
+        LOGGING.exception('%s set disk speed failed' % data['uuid'])
+
+    try:
+        set_interface_speed(pre_data, data, timedelta)
+    except Exception:
+        LOGGING.exception('%s set interface speed failed' % data['uuid'])
+
+
 def collector():
-    client = LibvirtClient()
-    import pprint
+    global PRE_DATAS, HOUR_DATAS
+
+    try:
+        client = LibvirtClient()
+    except libvirt.VIR_ERR_INTERNAL_ERROR:
+        LOGGING.error('Can not connect to libvirt!')
+        return
+
     datas = client.get_all_data()
-    # pprint.pprint(datas)
+    client.close()
+
+    if len(datas) == 0:
+        return
+
+    if PRE_DATAS is not None:
+        for i in range(len(datas)):
+            uuid = datas[i].get('uuid')
+            pre_data = filter(lambda domain: domain['uuid'] == uuid, PRE_DATAS)
+
+            if len(pre_data) == 0:
+                continue
+            try:
+                set_speed(pre_data[0], datas[i])
+            except Exception:
+                LOGGING.exception('%s set speed failed' % datas[i]['uuid'])
+
+    PRE_DATAS = deepcopy(datas)
+
+    try:
+        mongo_save(datas)
+    except Exception:
+        LOGGING.exception('save datas to mongo failed!')
+
+    for data in datas:
+        vm_hour_datas = HOUR_DATAS.get(data.get('uuid'), None)
+        if vm_hour_datas:
+            if len(vm_hour_datas) > 60:
+                vm_hour_datas.popleft()
+            else:
+                data.pop('uuid')
+                vm_hour_datas.append(data)
+        else:
+            HOUR_DATAS[data['uuid']] = deque([])
+            uuid = data.pop('uuid')
+            HOUR_DATAS[uuid].append(data)
+
+
+def get_data_queue(uuid, item, period):
+    data_queue = HOUR_DATAS[period:]
+
+    return []
+
+
+def analysis(uuid, config):
+    item = config.get('item')
+    period = config.get('period')
+    method = config.get('method')
+    method_option = config.get('method_option')
+    threshold = config.get('threshold')
+
+    data = get_data_queue(uuid, item, period)
+
+
+def set_trigger(trigger_id):
+    pass
+
+

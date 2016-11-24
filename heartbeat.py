@@ -28,7 +28,4 @@ def heartbeat(agent_id=None, hostname=None, uuids=None):
     agent_id = response_str.get('id', None)
     config = response_str.get('config', None)
 
-    print body
-    print agent_id, config
-
     return agent_id, config
