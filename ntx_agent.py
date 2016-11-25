@@ -10,7 +10,8 @@ from logging.handlers import RotatingFileHandler
 from multiprocessing import Process
 
 from heartbeat import heartbeat
-from collector import get_current_uuids, collector, analysis, set_trigger
+from collector import get_current_uuids, collector
+from trigger_analysis import analysis, set_trigger
 
 
 HOSTNAME = None
@@ -131,9 +132,9 @@ if __name__ == '__main__':
 
     time.sleep(10)
 
-    # analysis_process = AnalysisProcess(60)
-    # analysis_process.daemon = True
-    # analysis_process.start()
+    analysis_process = AnalysisProcess(60)
+    analysis_process.daemon = True
+    analysis_process.start()
 
     while True:
         # check sub processes is working

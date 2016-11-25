@@ -5,18 +5,13 @@ import time
 import logging
 import datetime
 from copy import deepcopy
-from collections import deque
 import pprint
 
 from xml.etree import ElementTree
-from mongo import mongo_save
+from mongo import mongodb_save
 
 PRE_DATAS = None
-HOUR_DATAS = {}
-
-
 LOGGING = logging.getLogger('')
-
 DATA_TEMPLATE = {
     'uuid': None,
     'time': None,
@@ -226,44 +221,10 @@ def collector():
             except Exception:
                 LOGGING.exception('%s set speed failed' % datas[i]['uuid'])
 
-    PRE_DATAS = deepcopy(datas)
-
     try:
-        mongo_save(datas)
+        if PRE_DATAS is not None:
+            mongodb_save(datas)
     except Exception:
         LOGGING.exception('save datas to mongo failed!')
 
-    for data in datas:
-        vm_hour_datas = HOUR_DATAS.get(data.get('uuid'), None)
-        if vm_hour_datas:
-            if len(vm_hour_datas) > 60:
-                vm_hour_datas.popleft()
-            else:
-                data.pop('uuid')
-                vm_hour_datas.append(data)
-        else:
-            HOUR_DATAS[data['uuid']] = deque([])
-            uuid = data.pop('uuid')
-            HOUR_DATAS[uuid].append(data)
-
-
-def get_data_queue(uuid, item, period):
-    data_queue = HOUR_DATAS[period:]
-
-    return []
-
-
-def analysis(uuid, config):
-    item = config.get('item')
-    period = config.get('period')
-    method = config.get('method')
-    method_option = config.get('method_option')
-    threshold = config.get('threshold')
-
-    data = get_data_queue(uuid, item, period)
-
-
-def set_trigger(trigger_id):
-    pass
-
-
+    PRE_DATAS = deepcopy(datas)
