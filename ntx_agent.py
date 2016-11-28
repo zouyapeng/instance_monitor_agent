@@ -5,18 +5,20 @@ import time
 import sched
 import logging
 import socket
+import pprint
+import json
 
 from logging.handlers import RotatingFileHandler
-from multiprocessing import Process
+from multiprocessing import Process, Manager, Queue
 
-from heartbeat import heartbeat
+from heartbeat import heartbeat, set_trigger
 from collector import get_current_uuids, collector
-from trigger_analysis import analysis, set_trigger
+from trigger_analysis import analysis
 
 
 HOSTNAME = None
-UUIDS = None
 ID = None
+UUIDS = None
 CONFIG = {}
 
 LOGGING = logging.getLogger('')
@@ -28,13 +30,12 @@ LOGGING.addHandler(R_handler)
 
 
 def analysis_worker():
-    global CONFIG, UUIDS
+    global UUIDS, CONFIG
     try:
         if CONFIG and UUIDS:
             for uuid in UUIDS:
                 config = CONFIG.get(uuid, None)
-                if analysis(uuid, config):
-                    set_trigger(config['id'])
+                analysis(uuid, config)
     except Exception:
         LOGGING.exception('!!!!!analysis failed!!!!!')
 
@@ -49,16 +50,20 @@ def collector_worker():
 def heartbeat_worker():
     uuids = get_current_uuids()
 
-    global UUIDS, ID, CONFIG
-    uuids_status = cmp(UUIDS, uuids)
+    global ID, UUIDS
+    uuids_status = cmp(uuids, UUIDS)
 
     if ID and uuids_status == 0:
-        ID, CONFIG = heartbeat(agent_id=ID)
+        ID, config = heartbeat(agent_id=ID)
     elif ID and uuids_status != 0:
-        UUIDS = uuids
-        ID, CONFIG = heartbeat(agent_id=ID, uuids=UUIDS)
+        ID, config = heartbeat(agent_id=ID, uuids=uuids)
     else:
-        ID, CONFIG = heartbeat(hostname=HOSTNAME, uuids=UUIDS)
+        ID, config = heartbeat(hostname=HOSTNAME, uuids=UUIDS)
+
+    if uuids_status == 0:
+        return None, config
+    else:
+        return uuids, config
 
 
 class CollectorProcess(Process):
@@ -77,13 +82,21 @@ class CollectorProcess(Process):
 
 
 class HeartbeatProcess(Process):
-    def __init__(self, interval):
+    def __init__(self, interval, queue):
         super(HeartbeatProcess, self).__init__()
         self.interval = interval
+        self.queue = queue
 
     def main_loop(self, sc):
         sc.enter(self.interval, 1, self.main_loop, (sc,))
-        heartbeat_worker()
+        uuids, config = heartbeat_worker()
+        global UUIDS, CONFIG
+        if uuids:
+            self.queue.put(json.dumps({'uuids': uuids}))
+            UUIDS = uuids
+        if config:
+            self.queue.put(json.dumps({'config': config}))
+            CONFIG = config
 
     def run(self):
         scheduler = sched.scheduler(time.time, time.sleep)
@@ -92,12 +105,24 @@ class HeartbeatProcess(Process):
 
 
 class AnalysisProcess(Process):
-    def __init__(self, interval):
+    def __init__(self, interval, queue):
         super(AnalysisProcess, self).__init__()
         self.interval = interval
+        self.queue = queue
 
     def main_loop(self, sc):
         sc.enter(self.interval, 1, self.main_loop, (sc,))
+        global UUIDS, CONFIG
+        while not self.queue.empty():
+            queue_data = self.queue.get()
+            queue_data = json.loads(queue_data)
+            uuids = queue_data.get('uuids', None)
+            config = queue_data.get('config', None)
+            if uuids:
+                UUIDS = uuids
+            if config:
+                CONFIG = config
+
         analysis_worker()
 
     def run(self):
@@ -107,8 +132,7 @@ class AnalysisProcess(Process):
 
 
 def init_server():
-    global UUIDS, HOSTNAME
-
+    global HOSTNAME, UUIDS
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(('www.baidu.com', 80))
     HOSTNAME = s.getsockname()[0]
@@ -118,21 +142,23 @@ def init_server():
 
 
 if __name__ == '__main__':
+    queue = Queue()
+
     init_server()
 
-    heartbeat_process = HeartbeatProcess(60)
+    heartbeat_process = HeartbeatProcess(20, queue)
     heartbeat_process.daemon = True
     heartbeat_process.start()
 
     time.sleep(10)
 
-    collector_process = CollectorProcess(30)
+    collector_process = CollectorProcess(20)
     collector_process.daemon = True
     collector_process.start()
 
     time.sleep(10)
 
-    analysis_process = AnalysisProcess(60)
+    analysis_process = AnalysisProcess(20, queue)
     analysis_process.daemon = True
     analysis_process.start()
 

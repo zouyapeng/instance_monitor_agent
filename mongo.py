@@ -28,7 +28,7 @@ def mongodb_get_last(uuid):
     pass
 
 
-def mongodb_get_cpu(uuid, start, end):
+def mongodb_get_cpu(uuid, start, end, flag=False):
     mongodb_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
     db = mongodb_client.VmDataBase
     collection = db[uuid]
@@ -53,12 +53,15 @@ def mongodb_get_cpu(uuid, start, end):
     else:
         match = {'$match': {}}
 
-    results =collection.aggregate([match, {'$project': {'_id': 0, 'cpu.cpu_usage': 1}}])
+    results =collection.aggregate([match, {'$project': {'_id': 0, 'time': 1, 'cpu.cpu_usage': 1}}])
 
-    return [result['cpu']['cpu_usage'] for result in results]
+    if flag:
+        return [result['cpu']['cpu_usage'] for result in results]
+
+    return [{'time': result['time'], 'cpu_usage': result['cpu']['cpu_usage']} for result in results]
 
 
-def mongodb_get_memory(uuid, start, end):
+def mongodb_get_memory(uuid, start, end, flag=False):
     mongodb_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
     db = mongodb_client.VmDataBase
     collection = db[uuid]
@@ -83,12 +86,15 @@ def mongodb_get_memory(uuid, start, end):
     else:
         match = {'$match': {}}
 
-    results = collection.aggregate([match, {'$project': {'_id': 0, 'memory.usage': 1}}])
+    results = collection.aggregate([match, {'$project': {'_id': 0, 'time': 1, 'memory.usage': 1}}])
 
-    return [result['memory']['usage'] for result in results]
+    if flag:
+        return [result['memory']['usage'] for result in results]
+
+    return [{'time': result['time'], 'memory_usage': result['memory']['usage']} for result in results]
 
 
-def mongodb_get_disk(uuid, item, start, end):
+def mongodb_get_disk(uuid, start, end, item, flag=False):
     mongodb_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
     db = mongodb_client.VmDataBase
     collection = db[uuid]
@@ -113,8 +119,7 @@ def mongodb_get_disk(uuid, item, start, end):
     else:
         match = {'$match': {}}
 
-    results = collection.aggregate([match, {'$project': {'_id': 0, 'disk': 1}}])
-
+    results = collection.aggregate([match, {'$project': {'_id': 0, 'time': 1, 'disk': 1}}])
 
     results_re = {}
     for result in results:
@@ -123,24 +128,82 @@ def mongodb_get_disk(uuid, item, start, end):
                 results_re[disk] = []
 
             if item == 'rds':
-                results_re[disk].append(value.get('rd_bytes_speed'))
+                if flag:
+                    results_re[disk].append(value.get('rd_bytes_speed'))
+                else:
+                    results_re[disk].append({'time': result['time'], 'rd_bytes_speed': value.get('rd_bytes_speed')})
             elif item == 'rdops':
-                results_re[disk].append(value.get('rd_req_speed'))
+                if flag:
+                    results_re[disk].append(value.get('rd_req_speed'))
+                else:
+                    results_re[disk].append({'time': result['time'], 'rd_req_speed': value.get('rd_req_speed')})
             elif item == 'wrs':
-                results_re[disk].append(value.get('wr_bytes_speed'))
+                if flag:
+                    results_re[disk].append(value.get('wr_bytes_speed'))
+                else:
+                    results_re[disk].append({'time': result['time'], 'wr_bytes_speed': value.get('wr_bytes_speed')})
             elif item == 'wrops':
-                results_re[disk].append(value.get('wr_req_speed'))
+                if flag:
+                    results_re[disk].append(value.get('wr_req_speed'))
+                else:
+                    results_re[disk].append({'time': result['time'], 'wr_req_speed': value.get('wr_req_speed')})
             else:
                 results_re[disk].append(None)
 
     return results_re
 
 
-def mongodb_get_interface(uuid, item, start, end):
-    pass
+def mongodb_get_interface(uuid, start, end, item, flag):
+    mongodb_client = MongoClient(MONGODB_HOST, MONGODB_PORT)
+    db = mongodb_client.VmDataBase
+    collection = db[uuid]
+
+    if start is not None and end is not None:
+        match = {
+            '$match': {
+                'time': {
+                    '$gt': start,
+                    '$lt': end
+                }
+            }
+        }
+    elif start is not None and end is None:
+        match = {
+            '$match': {
+                'time': {
+                    '$gt': start
+                }
+            }
+        }
+    else:
+        match = {'$match': {}}
+
+    results = collection.aggregate([match, {'$project': {'_id': 0, 'time': 1, 'interface': 1}}])
+
+    results_re = {}
+    for result in results:
+        for interface, value in result['interface'].items():
+            if results_re.get(interface, None) is None:
+                results_re[interface] = []
+
+            if item == 'rxs':
+                if flag:
+                    results_re[interface].append(value.get('rx_bytes_speed'))
+                else:
+                    results_re[interface].append({'time': result['time'], 'rx_bytes_speed': value.get('rx_bytes_speed')})
+            elif item == 'txs':
+                if flag:
+                    results_re[interface].append(value.get('tx_bytes_speed'))
+                else:
+                    results_re[interface].append({'time': result['time'], 'tx_bytes_speed': value.get('tx_bytes_speed')})
+            else:
+                results_re[interface].append(None)
+
+    return results_re
 
 
-print mongodb_get_disk('0d5b82ba-f20b-49b3-beeb-14cd76612692',
-                       item='wrs',
-                       start=datetime.datetime.strptime('2016-11-24 01:00:00', '%Y-%m-%d %H:%M:%S'),
-                       end=None)
+# print mongodb_get_interface('0d5b82ba-f20b-49b3-beeb-14cd76612692',
+#                        item='txs',
+#                        start=datetime.datetime.strptime('2016-11-24 04:00:00', '%Y-%m-%d %H:%M:%S'),
+#                        end=None,
+#                        flag=True)

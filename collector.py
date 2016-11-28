@@ -195,7 +195,7 @@ def set_speed(pre_data, data):
 
 
 def collector():
-    global PRE_DATAS, HOUR_DATAS
+    global PRE_DATAS
 
     try:
         client = LibvirtClient()

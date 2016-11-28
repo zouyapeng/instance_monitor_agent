@@ -4,10 +4,10 @@
 import httplib
 import json
 
-
 server_host = '192.168.7.164'
 
 heartbeat_uri = '/heartbeat/'
+trigger_uri = '/trigger/'
 
 
 def heartbeat(agent_id=None, hostname=None, uuids=None):
@@ -29,3 +29,32 @@ def heartbeat(agent_id=None, hostname=None, uuids=None):
     config = response_str.get('config', None)
 
     return agent_id, config
+
+
+def get_trigger(trigger_id):
+    conn = httplib.HTTPConnection(server_host, port=9339)
+    headers = {'Content-type': 'application/json'}
+    conn.request('GET', ''.join([trigger_uri, str(trigger_id), '/']), headers=headers)
+    response = conn.getresponse()
+    response_str = json.loads(response.read())
+    conn.close()
+
+    return response_str
+
+
+def set_trigger(trigger, status):
+    trigger_status = trigger.get('status', None)
+
+    if trigger_status == status or trigger_status is None:
+        return
+
+    conn = httplib.HTTPConnection(server_host, port=9339)
+    headers = {'Content-type': 'application/json'}
+    trigger['status'] = status
+    body = json.dumps(trigger)
+    conn.request('PUT', ''.join([trigger_uri, str(trigger['id']), '/']), body=body, headers=headers)
+    response = conn.getresponse()
+    response_str = json.loads(response.read())
+    conn.close()
+
+    return response_str
