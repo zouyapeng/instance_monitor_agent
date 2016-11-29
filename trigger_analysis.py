@@ -4,7 +4,7 @@ from mongo import *
 from heartbeat import set_trigger, get_trigger
 
 
-def get_data_queue(uuid, item, period):
+def get_data_queue(uuid, item, item_option, period):
     data_queue = []
     start = datetime.datetime.now() - datetime.timedelta(minutes=period)
 
@@ -13,13 +13,13 @@ def get_data_queue(uuid, item, period):
     elif item == 'memory usage':
         data_queue = mongodb_get_memory(uuid=uuid, start=start, end=None, flag=True)
     elif item == 'disk read speed':
-        data_queue = mongodb_get_disk(uuid=uuid, start=start, end=None, item='rds', flag=True)
+        data_queue = mongodb_get_disk(uuid=uuid, start=start, end=None, item='rds', item_option=item_option, flag=True)
     elif item == 'disk write speed':
-        data_queue = mongodb_get_disk(uuid=uuid, start=start, end=None, item='wrs', flag=True)
+        data_queue = mongodb_get_disk(uuid=uuid, start=start, end=None, item='wrs', item_option=item_option, flag=True)
     elif item == 'incoming network traffic':
-        data_queue = mongodb_get_interface(uuid=uuid, start=start, end=None, item='rxs', flag=True)
+        data_queue = mongodb_get_interface(uuid=uuid, start=start, end=None, item='rxs', item_option=item_option, flag=True)
     elif item == 'outgoing network traffic':
-        data_queue = mongodb_get_interface(uuid=uuid, start=start, end=None, item='txs', flag=True)
+        data_queue = mongodb_get_interface(uuid=uuid, start=start, end=None, item='txs', item_option=item_option, flag=True)
     else:
         pass
 
@@ -35,22 +35,21 @@ def analysis_trigger(method, method_option, threshold, data_queue):
             threshold = int(threshold) * len(data_queue)
         analysis_string = ''.join([method, '(', str(data_queue), ')', method_option, str(threshold)])
 
-        # print analysis_string
-        # print eval(analysis_string)
         return eval(analysis_string)
     else:
         return False
 
 
 def analysis(uuid, configs):
-    for config in configs:
-        item = config.get('item')
-        period = config.get('period')
-        method = config.get('method')
-        method_option = config.get('method_option')
-        threshold = config.get('threshold')
+    for trigger in configs:
+        item = trigger.get('item')
+        item_option = trigger.get('item_option')
+        period = trigger.get('period')
+        method = trigger.get('method')
+        method_option = trigger.get('method_option')
+        threshold = trigger.get('threshold')
 
-        data = get_data_queue(uuid, item, period)
+        data = get_data_queue(uuid, item, item_option, period)
 
         analysis_status = analysis_trigger(method, method_option, threshold, data)
-        set_trigger(get_trigger(config['id']), analysis_status)
+        set_trigger(trigger, analysis_status)
