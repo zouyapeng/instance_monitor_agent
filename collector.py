@@ -73,7 +73,7 @@ class LibvirtClient(object):
             return {'actual': memory_total,
                     'available': memory_available,
                     'used': memory_used,
-                    'usage': round(memory_used * 1.00 / memory_total, 2)}
+                    'usage': round(memory_used * 100.00 / memory_total, 2)}
         else:
             return {'actual': memory_total,
                     'available': memory_available,

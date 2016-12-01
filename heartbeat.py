@@ -11,11 +11,11 @@ trigger_uri = '/trigger/'
 
 def heartbeat(agent_id=None, hostname=None, uuids=None):
     if agent_id and uuids is not None:
-        body = json.dumps({'id': agent_id, 'uuids': uuids})
+        body = json.dumps({'id': agent_id, 'uuids': uuids, 'agent': True})
     elif agent_id and uuids is None:
-        body = json.dumps({'id': agent_id})
+        body = json.dumps({'id': agent_id, 'agent': True})
     else:
-        body = json.dumps({'hostname': hostname, 'uuids': uuids})
+        body = json.dumps({'hostname': hostname, 'uuids': uuids, 'agent': True})
 
     conn = httplib.HTTPConnection(CONF.server_host, port=CONF.server_port)
     headers = {'Content-type': 'application/json', 'X-Auth-Token': CONF.admin_token}
@@ -50,6 +50,7 @@ def set_trigger(trigger, status):
     conn = httplib.HTTPConnection(CONF.server_host, port=CONF.server_port)
     headers = {'Content-type': 'application/json', 'X-Auth-Token': CONF.admin_token}
     trigger['status'] = status
+    trigger['agent'] = True
     body = json.dumps(trigger)
     conn.request('PUT', ''.join([trigger_uri, str(trigger['id']), '/']), body=body, headers=headers)
     response = conn.getresponse()
