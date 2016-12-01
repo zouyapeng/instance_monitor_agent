@@ -3,12 +3,13 @@
 import logging
 import datetime
 from pymongo import MongoClient, DESCENDING
+from config import CONF
 
 LOGGING = logging.getLogger('')
 
-MONGODB_HOST = '192.168.213.230'
-MONGODB_PORT = 27017
-MONGODB_EXPIRE = 30 * 24 * 60 * 60
+MONGODB_HOST = CONF.mongodb.host
+MONGODB_PORT = CONF.mongodb.port
+MONGODB_EXPIRE = CONF.mongodb.expire
 
 
 def mongodb_save(datas):
@@ -192,11 +193,3 @@ def mongodb_get_interface(uuid, start, end, item, item_option, flag):
         return [result['interface'][item_option][item] for result in results]
 
     return [{'time': result['time'], item: result['interface'][item_option][item]} for result in results]
-
-
-# print mongodb_get_disk('0d5b82ba-f20b-49b3-beeb-14cd76612692',
-#                             item='wrops',
-#                             item_option='vda',
-#                             start=datetime.datetime.strptime('2016-11-28 22:00:00', '%Y-%m-%d %H:%M:%S'),
-#                             end=None,
-#                             flag=True)

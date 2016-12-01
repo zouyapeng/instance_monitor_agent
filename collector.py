@@ -5,7 +5,6 @@ import time
 import logging
 import datetime
 from copy import deepcopy
-import pprint
 
 from xml.etree import ElementTree
 from mongo import mongodb_save

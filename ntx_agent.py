@@ -14,6 +14,7 @@ from multiprocessing import Process, Queue
 from heartbeat import heartbeat
 from collector import get_current_uuids, collector
 from trigger_analysis import analysis
+from config import CONF
 
 
 HOSTNAME = None
@@ -22,7 +23,7 @@ UUIDS = None
 CONFIG = {}
 
 LOGGING = logging.getLogger('')
-R_handler = RotatingFileHandler('/var/log/ntx_agent.log', maxBytes=10 * 1024 * 1024,backupCount=5)
+R_handler = RotatingFileHandler(CONF.log_path, maxBytes=10 * 1024 * 1024,backupCount=5)
 formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s')
 R_handler.setFormatter(formatter)
 LOGGING.setLevel(logging.DEBUG)
@@ -146,19 +147,19 @@ if __name__ == '__main__':
 
     init_server()
 
-    heartbeat_process = HeartbeatProcess(20, queue)
+    heartbeat_process = HeartbeatProcess(CONF.heartbeat_interval, queue)
     heartbeat_process.daemon = True
     heartbeat_process.start()
 
     time.sleep(10)
 
-    collector_process = CollectorProcess(20)
+    collector_process = CollectorProcess(CONF.collector_interval)
     collector_process.daemon = True
     collector_process.start()
 
     time.sleep(10)
 
-    analysis_process = AnalysisProcess(20, queue)
+    analysis_process = AnalysisProcess(CONF.analysis_interval, queue)
     analysis_process.daemon = True
     analysis_process.start()
 

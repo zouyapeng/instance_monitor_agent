@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-import datetime
 from mongo import *
-from heartbeat import set_trigger, get_trigger
+from heartbeat import set_trigger
 
 
 def get_data_queue(uuid, item, item_option, period):
