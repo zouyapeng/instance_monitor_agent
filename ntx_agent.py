@@ -9,9 +9,9 @@ import pprint
 import json
 
 from logging.handlers import RotatingFileHandler
-from multiprocessing import Process, Manager, Queue
+from multiprocessing import Process, Queue
 
-from heartbeat import heartbeat, set_trigger
+from heartbeat import heartbeat
 from collector import get_current_uuids, collector
 from trigger_analysis import analysis
 
@@ -22,7 +22,7 @@ UUIDS = None
 CONFIG = {}
 
 LOGGING = logging.getLogger('')
-R_handler = RotatingFileHandler('./ntx_agent.log', maxBytes=10 * 1024 * 1024,backupCount=5)
+R_handler = RotatingFileHandler('/var/log/ntx_agent.log', maxBytes=10 * 1024 * 1024,backupCount=5)
 formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s')
 R_handler.setFormatter(formatter)
 LOGGING.setLevel(logging.DEBUG)
