@@ -66,17 +66,20 @@ class LibvirtClient(object):
     def get_memory_statistics(domain):
         memory_stats = domain.memoryStats()
         memory_total = memory_stats.get('actual')
+        memory_unused = memory_stats.get('unused', None)
         memory_available = memory_stats.get('available', None)
 
         if memory_available is not None:
-            memory_used = memory_total - memory_available
+            memory_used = memory_total - memory_unused
             return {'actual': memory_total,
                     'available': memory_available,
+                    'unused': memory_unused,
                     'used': memory_used,
                     'usage': round(memory_used * 100.00 / memory_total, 2)}
         else:
             return {'actual': memory_total,
                     'available': memory_available,
+                    'unused': memory_unused,
                     'used': None,
                     'usage': None}
 
