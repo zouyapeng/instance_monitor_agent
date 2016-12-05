@@ -1,7 +1,8 @@
 from setuptools import setup
 
+
 setup(name='VMAgent',
-      version='0.1',
+      version='0.1.2',
       description='Openstack instance monitor agent',
       url='http://github.com/zouyapeng/instance_monitor_agent',
       author='Zouyapeng',
@@ -10,9 +11,10 @@ setup(name='VMAgent',
       license='Apache',
       packages=['VMAgent'],
       install_requires=[
-          'pymongo==3.4.0',
+          'pymongo >= 3.2',
+          'oslo.config >= 1.4.0'
       ],
       scripts=['bin/VMAgent'],
-      data_files=[('/etc/VMAgent/', ['VMAgent.conf'])],
+      data_files=[('/etc/VMAgent/', ['etc/VMAgent.conf'])],
       zip_safe=False
 )

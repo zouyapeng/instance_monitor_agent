@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-from oslo_config import cfg
-from oslo_config import types
+from oslo.config import cfg
+from oslo.config import types
 
 CONF = cfg.CONF
 

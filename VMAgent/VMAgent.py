@@ -6,6 +6,8 @@ import logging
 import sched
 import socket
 import time
+import signal
+from functools import partial
 from logging.handlers import RotatingFileHandler
 from multiprocessing import Process, Queue
 
@@ -25,7 +27,6 @@ formatter = logging.Formatter('%(asctime)s-%(levelname)s-%(message)s')
 R_handler.setFormatter(formatter)
 LOGGING.setLevel(logging.DEBUG)
 LOGGING.addHandler(R_handler)
-
 
 def analysis_worker():
     global UUIDS, CONFIG
@@ -139,6 +140,11 @@ def init_server():
     UUIDS = get_current_uuids()
 
 
+def kill_process(processes, signum, frame):
+    for process in processes:
+        process.terminate()
+
+
 def vm_agent_run():
     queue = Queue()
 
@@ -146,20 +152,18 @@ def vm_agent_run():
 
     heartbeat_process = HeartbeatProcess(CONF.heartbeat_interval, queue)
     heartbeat_process.daemon = True
-    heartbeat_process.start()
-
-    time.sleep(10)
 
     collector_process = CollectorProcess(CONF.collector_interval)
     collector_process.daemon = True
-    collector_process.start()
-
-    time.sleep(10)
 
     analysis_process = AnalysisProcess(CONF.analysis_interval, queue)
     analysis_process.daemon = True
+
+    heartbeat_process.start()
+    collector_process.start()
     analysis_process.start()
 
     while True:
+        signal.signal(signal.SIGTERM, partial(kill_process, [heartbeat_process, collector_process, analysis_process]))
         # check sub processes is working
         time.sleep(3600)

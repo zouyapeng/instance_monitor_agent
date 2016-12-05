@@ -1,6 +1,65 @@
 #!/usr/bin/env python
-
+import os
+import sys
+import time
 from VMAgent.VMAgent import vm_agent_run
 
-if __name__ == '__main__':
+def daemon(func):
+    """
+    :param func:
+    :return:
+    """
+    def _daemon():
+        try:
+            pid = os.fork()
+            if pid > 0:
+                sys.exit(0)
+        except OSError as error:
+            sys.exit(1)
+
+        os.chdir('/')
+        os.umask(0)
+        os.setsid()
+
+        try:
+            pid = os.fork()
+            if pid > 0:
+                sys.exit(0)
+        except OSError as error:
+            sys.exit(1)
+
+        pid = str(os.getpid())
+        file("/var/run/VMAgent.pid", 'w+').write("%s\n" % pid)
+
+        func()
+
+    return _daemon
+
+
+@daemon
+def main():
     vm_agent_run()
+
+
+def stop():
+    with open('/var/run/VMAgent.pid', "r") as f:
+        pid = int(f.read().strip())
+    os.kill(pid, 15)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        if 'start' == sys.argv[1]:
+            main()
+        elif 'stop' == sys.argv[1]:
+            stop()
+        elif 'restart' == sys.argv[1]:
+            stop()
+            time.sleep(5)
+            main()
+        else:
+            sys.exit(2)
+    else:
+        sys.exit(2)
+    pass
+
