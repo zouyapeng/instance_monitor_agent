@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import logging
-import datetime
-from pymongo import MongoClient, DESCENDING
+
+from pymongo import MongoClient
 from config import CONF
 
 LOGGING = logging.getLogger('')

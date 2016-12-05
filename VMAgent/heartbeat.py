@@ -3,6 +3,7 @@
 
 import httplib
 import json
+
 from config import CONF
 
 heartbeat_uri = '/heartbeat/'
@@ -18,7 +19,7 @@ def heartbeat(agent_id=None, hostname=None, uuids=None):
         body = json.dumps({'hostname': hostname, 'uuids': uuids, 'agent': True})
 
     conn = httplib.HTTPConnection(CONF.server_host, port=CONF.server_port)
-    headers = {'Content-type': 'application/json', 'X-Auth-Token': CONF.admin_token}
+    headers = {'Content-type': 'application/json'}
     conn.request('POST', heartbeat_uri, body=body, headers=headers)
     response = conn.getresponse()
     response_str = json.loads(response.read())
@@ -32,7 +33,7 @@ def heartbeat(agent_id=None, hostname=None, uuids=None):
 
 def get_trigger(trigger_id):
     conn = httplib.HTTPConnection(CONF.server_host, port=CONF.server_port)
-    headers = {'Content-type': 'application/json', 'X-Auth-Token': CONF.admin_token}
+    headers = {'Content-type': 'application/json'}
     conn.request('GET', ''.join([trigger_uri, str(trigger_id), '/']), headers=headers)
     response = conn.getresponse()
     response_str = json.loads(response.read())
@@ -48,7 +49,7 @@ def set_trigger(trigger, status):
         return
 
     conn = httplib.HTTPConnection(CONF.server_host, port=CONF.server_port)
-    headers = {'Content-type': 'application/json', 'X-Auth-Token': CONF.admin_token}
+    headers = {'Content-type': 'application/json'}
     trigger['status'] = status
     trigger['agent'] = True
     body = json.dumps(trigger)

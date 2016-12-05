@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
-import time
-import sched
-import logging
-import socket
-import pprint
 import json
-
+import logging
+import sched
+import socket
+import time
 from logging.handlers import RotatingFileHandler
 from multiprocessing import Process, Queue
 
-from heartbeat import heartbeat
-from collector import get_current_uuids, collector
-from trigger_analysis import analysis
 from config import CONF
-
+from trigger_analysis import analysis
+from collector import get_current_uuids, collector
+from heartbeat import heartbeat
 
 HOSTNAME = None
 ID = None
@@ -142,7 +139,7 @@ def init_server():
     UUIDS = get_current_uuids()
 
 
-if __name__ == '__main__':
+def vm_agent_run():
     queue = Queue()
 
     init_server()

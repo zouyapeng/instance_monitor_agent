@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+from VMAgent.VMAgent import vm_agent_run
+
+if __name__ == '__main__':
+    vm_agent_run()

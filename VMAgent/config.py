@@ -17,10 +17,6 @@ common_opts = [
             default=9339,
             help='instance server port'),
 
-    cfg.StrOpt('admin_token',
-               default='',
-               help='admin token of openstack'),
-
     cfg.IntOpt('heartbeat_interval',
                default=30,
                help='heartbeat process interval'),
@@ -34,7 +30,7 @@ common_opts = [
                help='analysis process interval'),
 
     cfg.StrOpt('log_path',
-               default='/var/log/ntx_agent.log',
+               default='/var/log/VMAgent/VMAgent.log',
                help='log path')
 ]
 
@@ -61,4 +57,4 @@ mongodb_opts = [
 CONF.register_group(mongodb_opt_group)
 CONF.register_opts(mongodb_opts, mongodb_opt_group)
 
-CONF(default_config_files=['ntx_agent.conf'])
+CONF(default_config_files=['/etc/VMAgent/VMAgent.conf'])
