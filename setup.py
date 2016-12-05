@@ -14,7 +14,7 @@ setup(name='VMAgent',
           'pymongo >= 3.2',
           'oslo.config >= 1.4.0'
       ],
-      scripts=['bin/VMAgent'],
+      scripts=['bin/VMAgent', 'bin/VMAgent-stop'],
       data_files=[('/etc/VMAgent/', ['etc/VMAgent.conf'])],
       zip_safe=False
 )

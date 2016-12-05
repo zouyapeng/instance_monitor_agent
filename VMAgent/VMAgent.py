@@ -144,6 +144,8 @@ def kill_process(processes, signum, frame):
     for process in processes:
         process.terminate()
 
+    exit(0)
+
 
 def vm_agent_run():
     queue = Queue()

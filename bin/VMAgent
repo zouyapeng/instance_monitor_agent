@@ -40,26 +40,6 @@ def daemon(func):
 def main():
     vm_agent_run()
 
-
-def stop():
-    with open('/var/run/VMAgent.pid', "r") as f:
-        pid = int(f.read().strip())
-    os.kill(pid, 15)
-
-
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        if 'start' == sys.argv[1]:
-            main()
-        elif 'stop' == sys.argv[1]:
-            stop()
-        elif 'restart' == sys.argv[1]:
-            stop()
-            time.sleep(5)
-            main()
-        else:
-            sys.exit(2)
-    else:
-        sys.exit(2)
-    pass
+    main()
 
