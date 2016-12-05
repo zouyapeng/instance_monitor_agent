@@ -167,5 +167,4 @@ def vm_agent_run():
 
     while True:
         signal.signal(signal.SIGTERM, partial(kill_process, [heartbeat_process, collector_process, analysis_process]))
-        # check sub processes is working
         time.sleep(3600)
