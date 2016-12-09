@@ -1,6 +1,10 @@
 #!/usr/bin/env python
-from oslo.config import cfg
-from oslo.config import types
+try:
+    from oslo_config import cfg
+    from oslo_config import types
+except ImportError:
+    from oslo.config import cfg
+    from oslo.config import types
 
 CONF = cfg.CONF
 
@@ -31,30 +35,22 @@ common_opts = [
 
     cfg.StrOpt('log_path',
                default='/var/log/VMAgent/VMAgent.log',
-               help='log path')
-]
+               help='log path'),
 
-CONF.register_cli_opts(common_opts)
-
-
-# [mongodb]
-mongodb_opt_group = cfg.OptGroup(name='mongodb', title='mongodb')
-mongodb_opts = [
-    cfg.IPOpt('host',
+    cfg.IPOpt('mongodb_host',
               default='0.0.0.0',
               help='mongodb host'),
 
-    cfg.Opt('port',
+    cfg.Opt('mongodb_port',
             type=PortType,
             default=27017,
             help='mongodb port'),
 
-    cfg.IntOpt('expire',
+    cfg.IntOpt('mongodb_expire',
                default=2592000,
                help='data expire time'),
 ]
 
-CONF.register_group(mongodb_opt_group)
-CONF.register_opts(mongodb_opts, mongodb_opt_group)
+CONF.register_cli_opts(common_opts)
 
 CONF(default_config_files=['/etc/VMAgent/VMAgent.conf'])

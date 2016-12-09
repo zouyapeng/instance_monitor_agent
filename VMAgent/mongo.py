@@ -7,9 +7,9 @@ from config import CONF
 
 LOGGING = logging.getLogger('')
 
-MONGODB_HOST = CONF.mongodb.host
-MONGODB_PORT = CONF.mongodb.port
-MONGODB_EXPIRE = CONF.mongodb.expire
+MONGODB_HOST = CONF.mongodb_host
+MONGODB_PORT = CONF.mongodb_port
+MONGODB_EXPIRE = CONF.mongodb_expire
 
 
 def mongodb_save(datas):

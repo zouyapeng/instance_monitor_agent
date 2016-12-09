@@ -28,6 +28,7 @@ R_handler.setFormatter(formatter)
 LOGGING.setLevel(logging.DEBUG)
 LOGGING.addHandler(R_handler)
 
+
 def analysis_worker():
     global UUIDS, CONFIG
     try:
@@ -47,17 +48,20 @@ def collector_worker():
 
 
 def heartbeat_worker():
-    uuids = get_current_uuids()
-
     global ID, UUIDS
-    uuids_status = cmp(uuids, UUIDS)
+    try:
+        uuids = get_current_uuids()
+        uuids_status = cmp(uuids, UUIDS)
 
-    if ID and uuids_status == 0:
-        ID, config = heartbeat(agent_id=ID)
-    elif ID and uuids_status != 0:
-        ID, config = heartbeat(agent_id=ID, uuids=uuids)
-    else:
-        ID, config = heartbeat(hostname=HOSTNAME, uuids=UUIDS)
+        if ID and uuids_status == 0:
+            ID, config = heartbeat(agent_id=ID)
+        elif ID and uuids_status != 0:
+            ID, config = heartbeat(agent_id=ID, uuids=uuids)
+        else:
+            ID, config = heartbeat(hostname=HOSTNAME, uuids=UUIDS)
+    except Exception:
+        LOGGING.exception('!!!!!heartbeat failed!!!!!')
+        return None, None
 
     if uuids_status == 0:
         return None, config
@@ -88,8 +92,8 @@ class HeartbeatProcess(Process):
 
     def main_loop(self, sc):
         sc.enter(self.interval, 1, self.main_loop, (sc,))
-        uuids, config = heartbeat_worker()
         global UUIDS, CONFIG
+        uuids, config = heartbeat_worker()
         if uuids:
             self.queue.put(json.dumps({'uuids': uuids}))
             UUIDS = uuids
@@ -122,7 +126,10 @@ class AnalysisProcess(Process):
             if config:
                 CONFIG = config
 
-        analysis_worker()
+        try:
+            analysis_worker()
+        except Exception as error:
+            logging.exception(str(error))
 
     def run(self):
         scheduler = sched.scheduler(time.time, time.sleep)
