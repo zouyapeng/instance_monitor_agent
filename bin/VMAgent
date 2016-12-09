@@ -36,6 +36,10 @@ def daemon(func):
 
 
 @daemon
+def vm_agent_run_daemon():
+    vm_agent_run()
+
+
 def main():
     with open('/var/run/VMAgent.pid', "r") as f:
         pid = int(f.read().strip())
@@ -45,7 +49,7 @@ def main():
         print('VMAgent already running on pid %d\n' % pid)
         print('If you want to restart, Try VMAgent-stop, and then run VMAgent agent\!')
     except OSError:
-        vm_agent_run()
+        vm_agent_run_daemon()
 
 if __name__ == '__main__':
     main()
