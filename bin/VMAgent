@@ -41,9 +41,13 @@ def vm_agent_run_daemon():
 
 
 def main():
+    if not os.path.exists('/var/run/VMAgent.pid'):
+        vm_agent_run_daemon()
+        return
     with open('/var/run/VMAgent.pid', "r") as f:
         pid = int(f.read().strip())
         f.close()
+
     try:
         os.kill(pid, 0)
         print('VMAgent already running on pid %d\n' % pid)
